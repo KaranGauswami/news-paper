@@ -1,0 +1,50 @@
+name: cdk-deploy-dev
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+env:
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  CHAT_IDS: ${{ secrets.CHAT_IDS }}
+  CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
+  CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
+jobs:
+  deploy:
+    name: Deploy CDK stacks to AWS account
+    #runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build rust code
+        run: cargo build --release
+        working-directory: code
+
+      - name: Setup python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{secrets.AWS_ROLE_TO_ASSUME}}
+          aws-region: ${{secrets.CDK_DEFAULT_REGION}}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install cdk
+        run: npm install -g aws-cdk
+      - name: Run CDK synth for the DEV environment
+        run: cdk synth
+      - name: Deploy CDK to the DEV environment on AWS account
+        run: cdk deploy --require-approval never
